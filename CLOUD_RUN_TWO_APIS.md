@@ -7,30 +7,44 @@ Cloud Build uses the **repository root** and expects **`Dockerfile`** there.
 This repo includes a **root `Dockerfile`** that builds **LoginAPI** only.  
 If you only wired one Cloud Run service from GitHub, it should be the **Login / User Management** API.
 
-For **PoultryFarmAPI**, add a **second Cloud Run service** and either:
+For **PoultryFarmAPI**, add a **second Cloud Run service**. This repo includes **`cloudbuild.farm.yaml`** at the root (build → push → deploy).
 
-- Build from the same repo using **`cloudbuild.yaml`** (see below), or  
-- Build/push the image manually from `PoultryFarmAPI/` (see sections 2–3).
+### A) GitHub trigger for Farm API (recommended)
 
-### Optional: `cloudbuild.yaml` for Farm API (same repo)
+1. **Push** `cloudbuild.farm.yaml` to your GitHub branch (same repo as Login API).
 
-Create another trigger or use a second `cloudbuild.yaml` path — example build step:
+2. In **Google Cloud Console** → **Cloud Build** → **Triggers** → **Create trigger**.
 
-```yaml
-steps:
-  - name: gcr.io/cloud-builders/docker
-    args:
-      - build
-      - -t
-      - $_IMAGE
-      - -f
-      - PoultryFarmAPI/Dockerfile
-      - PoultryFarmAPI
-images:
-  - $_IMAGE
-```
+3. Connect **GitHub** → repo `TechRetainerAI/Poultrymaster_api` → branch (e.g. `^initial-upload$` or `^main$`).
 
-(`$_IMAGE` / substitutions depend on how you configure the trigger; use the Console “substitution variables” your project expects.)
+4. **Configuration**: *Cloud Build configuration file (yaml or json)*  
+   - **Location**: *Repository*  
+   - **Path**: `cloudbuild.farm.yaml`
+
+5. Open **Substitution variables** (or edit the yaml) and confirm:
+   - `_REGION` — same as Login (e.g. `europe-west1`).
+   - `_SERVICE_NAME` — new service name (default `poultrymaster-farm-api-git`). Must **not** be the same as the Login service.
+   - `_AR_REPO_PATH` — must match your Artifact Registry path for this GitHub repo.  
+     Copy from the Login build log: the segment after `PROJECT_ID/` and before the final image name, e.g.  
+     `cloud-run-source-deploy/techretainerai-poultrymaster_api`  
+     (If your Login image path differs, paste that middle part here.)
+
+6. **Service account**: use the same / similar as the working Login trigger (needs **Artifact Registry Writer** + **Cloud Run Admin**).
+
+7. Run the trigger (push a commit or “Run trigger”).  
+   You should get a second URL, e.g. `https://poultrymaster-farm-api-git-....run.app`.
+
+8. **Cloud Run** → open the **new** service → **Edit & deploy new revision** → set env vars:
+   - `ConnectionStrings__PoultryConn`
+   - `JWT__Secret`, `JWT__ValidAudience`, `JWT__ValidIssuer` (**same signing secret / rules as Login API** if Farm validates those tokens)
+   - `ASPNETCORE_ENVIRONMENT=Production` if needed  
+   - `AllowedOrigins__0` (and more indexes) if your app uses that config
+
+9. If the API should be callable without Google IAM: **Security** → **Allow unauthenticated invocations** (same idea as Login), or attach **Cloud Run Invoker** to your users.
+
+### B) Manual `docker` + `gcloud` (no second trigger)
+
+See **sections 3 and 5** below (build from `PoultryFarmAPI/`, push, `gcloud run deploy`).
 
 ---
 
