@@ -1,22 +1,14 @@
 # Cloud Build: PoultryFarmAPI → Artifact Registry → Cloud Run (second service)
 #
-# Same pipeline as root `cloudbuild.yaml` (GCP’s default filename). If your trigger
-# says "cloudbuild.yaml not found", either use this path explicitly here or push
-# `cloudbuild.yaml` and point the trigger at that file.
+# GCP defaults to THIS filename (`cloudbuild.yaml`). If you see
+# "File cloudbuild.yaml not found", ensure this file is at the repository root
+# and the trigger uses: Cloud Build configuration file → Location: Repository → cloudbuild.yaml
 #
-# In GCP: Cloud Build → Triggers → Create trigger → Event: Push to branch
-#   Build configuration: Cloud Build configuration file (yaml)
-#   Location: Repository → `cloudbuild.yaml` (default) OR `cloudbuild.farm.yaml`
-#
-# Edit substitutions below if your region, repo slug, or service name differs.
+# Duplicate pipeline also lives in `cloudbuild.farm.yaml` — keep both in sync when editing.
 
 substitutions:
-  # Must match the region where you deploy Cloud Run
   _REGION: europe-west1
-  # New Cloud Run service name (create empty service first, or let first deploy create it)
   _SERVICE_NAME: poultrymaster-farm-api-git
-  # Copy the middle path from your Login API image (Artifact Registry → repository name / image path)
-  # Pattern: REGION-docker.pkg.dev/PROJECT_ID/REPO_NAME/GITHUB_OWNER_REPO/SERVICE_IMAGE_NAME
   _AR_REPO_PATH: cloud-run-source-deploy/techretainerai-poultrymaster_api
 
 steps:
@@ -53,8 +45,6 @@ steps:
       - --port=8080
       - --allow-unauthenticated
       - --quiet
-
-# No top-level `images:` here — pushes are explicit above so the image exists before `gcloud run deploy`.
 
 options:
   logging: CLOUD_LOGGING_ONLY

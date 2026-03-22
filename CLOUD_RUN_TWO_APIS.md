@@ -7,11 +7,11 @@ Cloud Build uses the **repository root** and expects **`Dockerfile`** there.
 This repo includes a **root `Dockerfile`** that builds **LoginAPI** only.  
 If you only wired one Cloud Run service from GitHub, it should be the **Login / User Management** API.
 
-For **PoultryFarmAPI**, add a **second Cloud Run service**. This repo includes **`cloudbuild.farm.yaml`** at the root (build → push → deploy).
+For **PoultryFarmAPI**, add a **second Cloud Run service**. This repo includes **`cloudbuild.yaml`** (default GCP filename) and **`cloudbuild.farm.yaml`** (same pipeline) at the root (build → push → deploy).
 
 ### A) GitHub trigger for Farm API (recommended)
 
-1. **Push** `cloudbuild.farm.yaml` to your GitHub branch (same repo as Login API).
+1. **Push** `cloudbuild.yaml` (and/or `cloudbuild.farm.yaml`) to your GitHub branch (same repo as Login API).
 
 2. In **Google Cloud Console** → **Cloud Build** → **Triggers** → **Create trigger**.
 
@@ -19,7 +19,8 @@ For **PoultryFarmAPI**, add a **second Cloud Run service**. This repo includes *
 
 4. **Configuration**: *Cloud Build configuration file (yaml or json)*  
    - **Location**: *Repository*  
-   - **Path**: `cloudbuild.farm.yaml`
+   - **Path**: `cloudbuild.yaml` (**recommended** — matches GCP default) or `cloudbuild.farm.yaml`  
+   - If you leave the default path, GCP looks for **`cloudbuild.yaml`** only; using another name without changing the field causes *File cloudbuild.yaml not found*.
 
 5. Open **Substitution variables** (or edit the yaml) and confirm:
    - `_REGION` — same as Login (e.g. `europe-west1`).
