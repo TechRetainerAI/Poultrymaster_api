@@ -268,9 +268,13 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseRouting();
-app.UseHttpsRedirection();
-// CORS FIX: MIDDLEWARE PLACEMENT IS ALREADY CORRECT
+// CORS must run before HTTPS redirect. On Cloud Run, TLS ends at the edge; redirecting the
+// container's HTTP request (especially OPTIONS preflight) often drops CORS headers → browser error.
 app.UseCors("AllowOrigin");
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 //UseAuthorization comes before this
@@ -296,7 +300,5 @@ app.UseStatusCodePages(async context =>
             "<html><body><h1>Page not found</h1><p>The page you are looking for does not exist. Please check the URL or visit the <a href='/'>homepage</a>.</p></body></html>");
     }
 });
-
-app.MapControllers();
 
 app.Run();
