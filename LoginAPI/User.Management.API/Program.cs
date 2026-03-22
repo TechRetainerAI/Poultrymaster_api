@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -27,6 +28,14 @@ var connectionString = builder.Configuration.GetConnectionString("ConnStr") ?? t
 //configure stripe
 StripeConfiguration.ApiKey = builder.Configuration.GetValue<string>("StripeSettings:PrivateKey");
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("StripeSettings"));
+
+// Cloud Run / reverse proxies
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // CORS Configuration: Allow Next.js frontend
 builder.Services.AddCors(options =>
@@ -83,6 +92,12 @@ builder.Services.AddCors(options =>
                     origin.Contains(".ngrok.io") || 
                     origin.Contains(".ngrok-free.dev") ||
                     origin.Contains(".ngrok.app"))
+                    return true;
+
+                // Production web app + Render / legacy hostnames (align with Farm API)
+                if (origin.Contains("poultrymaster.com", StringComparison.OrdinalIgnoreCase) ||
+                    origin.Contains("techretainer.com", StringComparison.OrdinalIgnoreCase) ||
+                    origin.Contains(".onrender.com", StringComparison.OrdinalIgnoreCase))
                     return true;
 
                 return false;
@@ -242,6 +257,8 @@ builder.Services.AddSwaggerGen(option =>
 
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
