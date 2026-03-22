@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using System.Configuration;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PoultryFarmAPIWeb.Business;
@@ -21,6 +22,18 @@ QuestPDF.Settings.License = LicenseType.Community;
 //1) Add services to the container.
 string connectionString = builder.Configuration.GetConnectionString("PoultryConn")
                           ?? throw new InvalidOperationException("Connection string 'PoultryConn' not found.");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "Connection string 'PoultryConn' is empty. Set ConnectionStrings__PoultryConn on Cloud Run (or User Secrets locally).");
+}
+
+var jwtSecret = builder.Configuration["JWT:Secret"];
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    throw new InvalidOperationException(
+        "JWT:Secret is not configured. Set JWT__Secret on Cloud Run to match the Login API signing key.");
+}
 
 // Existing Service Registrations
 builder.Services.AddScoped<IBirdFlockService>(sp => new BirdFlockService(connectionString, sp.GetRequiredService<IMainFlockBatchService>()));
@@ -75,6 +88,14 @@ builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Cloud Run / reverse proxies: honor X-Forwarded-Proto so redirects and Swagger work over HTTPS
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 builder.Services.AddAuthentication(cfg =>
 {
     cfg.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -85,7 +106,7 @@ builder.Services.AddAuthentication(cfg =>
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT:Secret"])),
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
         ValidIssuer = builder.Configuration["JWT:ValidIssuer"],
         ValidateIssuer = true,
         ValidateAudience = false,
@@ -170,7 +191,12 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+app.UseForwardedHeaders();
+
+// Swagger was previously Development-only, which breaks /swagger on Cloud Run (Production).
+var enableSwagger = app.Environment.IsDevelopment()
+    || app.Configuration.GetValue("EnableSwagger", false);
+if (enableSwagger)
 {
     app.UseSwagger();
     app.UseSwaggerUI();
