@@ -153,6 +153,21 @@ builder.Services.Configure<IdentityOptions>(
     opts => opts.SignIn.RequireConfirmedEmail = true
     );
 
+// Cloud Run: set JWT__Secret (non-empty, >= 32 bytes for HS256). Empty → IDX10703.
+var jwtSecret = configuration["JWT:Secret"]?.Trim();
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    throw new InvalidOperationException(
+        "JWT:Secret is not configured. In Cloud Run → Login service → Variables, set JWT__Secret to your signing key.");
+}
+
+var jwtKeyBytes = Encoding.UTF8.GetBytes(jwtSecret);
+if (jwtKeyBytes.Length < 32)
+{
+    throw new InvalidOperationException(
+        "JWT:Secret is too short: use at least 32 characters for HS256.");
+}
+
 // Adding Authentication
 builder.Services.AddAuthentication(options =>
 {
@@ -191,7 +206,7 @@ builder.Services.AddAuthentication(options =>
 
 
 
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["JWT:Secret"]))
+        IssuerSigningKey = new SymmetricSecurityKey(jwtKeyBytes)
     };
 });
 
