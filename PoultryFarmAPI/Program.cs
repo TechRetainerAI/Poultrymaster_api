@@ -28,11 +28,19 @@ if (string.IsNullOrWhiteSpace(connectionString))
         "Connection string 'PoultryConn' is empty. Set ConnectionStrings__PoultryConn on Cloud Run (or User Secrets locally).");
 }
 
-var jwtSecret = builder.Configuration["JWT:Secret"];
+// Cloud Run: set JWT__Secret (same value as Login API). Empty → IDX10703 / "key length is zero" at runtime.
+var jwtSecret = builder.Configuration["JWT:Secret"]?.Trim();
 if (string.IsNullOrWhiteSpace(jwtSecret))
 {
     throw new InvalidOperationException(
-        "JWT:Secret is not configured. Set JWT__Secret on Cloud Run to match the Login API signing key.");
+        "JWT:Secret is not configured. In Cloud Run → Farm service → Variables: set JWT__Secret to the same signing key as the Login API.");
+}
+
+var jwtKeyBytes = Encoding.UTF8.GetBytes(jwtSecret);
+if (jwtKeyBytes.Length < 32)
+{
+    throw new InvalidOperationException(
+        "JWT:Secret is too short: use at least 32 characters (256 bits) for HS256. Set JWT__Secret on Cloud Run.");
 }
 
 // Existing Service Registrations
@@ -106,7 +114,7 @@ builder.Services.AddAuthentication(cfg =>
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+        IssuerSigningKey = new SymmetricSecurityKey(jwtKeyBytes),
         ValidIssuer = builder.Configuration["JWT:ValidIssuer"],
         ValidateIssuer = true,
         ValidateAudience = false,
