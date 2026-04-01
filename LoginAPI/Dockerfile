@@ -1,10 +1,10 @@
-# LoginAPI → Cloud Run (listens on port 8080)
-# Do NOT paste these lines into PowerShell. Save this file, then run docker build (see CLOUD_RUN.md).
+# LoginAPI → Cloud Run
+# Cloud Run sets PORT at runtime; Kestrel must listen on that port. Default 8080 if PORT is unset (local docker).
+# Deploy: gcloud run deploy <service> --source ... --region ... --port 8080 --allow-unauthenticated
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 8080
-ENV ASPNETCORE_URLS=http://0.0.0.0:8080
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
@@ -20,4 +20,6 @@ RUN dotnet publish User.Management.API.csproj -c Release -o /app/publish /p:UseA
 FROM base AS final
 WORKDIR /app
 COPY --from=build /app/publish .
-ENTRYPOINT ["dotnet", "User.Management.API.dll"]
+ENTRYPOINT ["/bin/sh", "-c"]
+# $$ → $ in image JSON so the shell expands PORT at container start (not at docker build).
+CMD ["export ASPNETCORE_URLS=http://0.0.0.0:$${PORT:-8080} && exec dotnet User.Management.API.dll"]

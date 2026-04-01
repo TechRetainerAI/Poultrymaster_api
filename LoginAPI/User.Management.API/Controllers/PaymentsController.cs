@@ -22,6 +22,7 @@ using System.Threading.Tasks;
 using User.Management.Service.Services;
 using User.Management.Data.Models;
 using Microsoft.AspNetCore.Authentication;
+using User.Management.API.Billing;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -211,21 +212,26 @@ namespace API.Controllers
 
 			StripeConfiguration.ApiKey = _stripeSettings.PrivateKey;
 
-			var tiersCfg = _farmTiers ?? new FarmSubscriptionTiersOptions();
+			var farm = _farmSubscription;
 			SessionCreateOptions options;
 
 			if (req.TotalBirds.HasValue)
 			{
 				var birds = Math.Max(0, req.TotalBirds.Value);
-				var tier = PickTierForBirdCount(birds, tiersCfg.Tiers);
-				if (tier == null)
+				SubscriptionTierQuote quote;
+				try
+				{
+					quote = FarmSubscriptionPricing.GetQuote(birds, farm);
+				}
+				catch (InvalidOperationException ex)
+				{
 					return BadRequest(new ErrorResponse
 					{
-						ErrorMessage = new ErrorMessage { Message = "Farm subscription tiers are not configured (need tier1, tier2, tier3 in FarmSubscriptionTiers)." },
+						ErrorMessage = new ErrorMessage { Message = ex.Message },
 					});
+				}
 
-				var currency = (tiersCfg.Currency ?? "ghs").Trim().ToLowerInvariant();
-				var unitAmount = (long)Math.Round(tier.MonthlyAmount * 100m, MidpointRounding.AwayFromZero);
+				var currency = (farm.Currency ?? "ghs").Trim().ToLowerInvariant();
 
 				options = new SessionCreateOptions
 				{
@@ -241,22 +247,22 @@ namespace API.Controllers
 							PriceData = new SessionLineItemPriceDataOptions
 							{
 								Currency = currency,
-								UnitAmount = unitAmount,
+								UnitAmount = quote.UnitAmountMinor,
 								Recurring = new SessionLineItemPriceDataRecurringOptions { Interval = "month" },
 								ProductData = new SessionLineItemPriceDataProductDataOptions
 								{
-									Name = $"Farm subscription — {tier.Label}",
+									Name = quote.ProductName,
 								},
 							},
 						},
 					},
 				};
 
-				if (tiersCfg.TrialDays > 0)
+				if (farm.TrialDays > 0)
 				{
 					options.SubscriptionData = new SessionSubscriptionDataOptions
 					{
-						TrialPeriodDays = tiersCfg.TrialDays,
+						TrialPeriodDays = farm.TrialDays,
 					};
 				}
 			}
@@ -279,11 +285,11 @@ namespace API.Controllers
 				};
 
 				var includeTrial = req.IncludeTrialWithPriceId != false;
-				if (includeTrial && tiersCfg.TrialDays > 0)
+				if (includeTrial && farm.TrialDays > 0)
 				{
 					options.SubscriptionData = new SessionSubscriptionDataOptions
 					{
-						TrialPeriodDays = tiersCfg.TrialDays,
+						TrialPeriodDays = farm.TrialDays,
 					};
 				}
 			}
@@ -302,7 +308,8 @@ namespace API.Controllers
 				return Ok(new CreateCheckoutSessionResponse
 				{
 					SessionId = session.Id,
-					PublicKey = _stripeSettings.PublicKey
+					PublicKey = _stripeSettings.PublicKey,
+					CheckoutUrl = session.Url,
 				});
 			}
 			catch (StripeException e)

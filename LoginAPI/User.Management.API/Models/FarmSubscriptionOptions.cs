@@ -2,6 +2,18 @@ using System.Collections.Generic;
 
 namespace User.Management.API.Models
 {
+	/// <summary>Binds <c>FarmSubscription</c> from appsettings / env (tier limits + monthly amounts).</summary>
+	public class FarmSubscriptionOptions
+	{
+		public int TrialDays { get; set; } = 7;
+		public string Currency { get; set; } = "ghs";
+		public int Tier1MaxBirds { get; set; }
+		public int Tier2MaxBirds { get; set; }
+		public decimal Tier1MonthlyAmount { get; set; }
+		public decimal Tier2MonthlyAmount { get; set; }
+		public decimal Tier3MonthlyAmount { get; set; }
+	}
+
 	public class FarmSubscriptionTiersOptions
 	{
 		public int TrialDays { get; set; } = 7;
