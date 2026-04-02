@@ -26,7 +26,7 @@ using User.Management.API.Billing;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
-namespace API.Controllers
+namespace User.Management.API.Controllers
 {
 	[Route("api/[controller]")]
 	[ApiController]
@@ -238,7 +238,7 @@ namespace API.Controllers
 					SuccessUrl = req.SuccessUrl,
 					CancelUrl = req.FailureUrl,
 					Mode = "subscription",
-					AutomaticPaymentMethods = new SessionAutomaticPaymentMethodsOptions { Enabled = true },
+					PaymentMethodTypes = new List<string> { "card" },
 					LineItems = new List<SessionLineItemOptions>
 					{
 						new SessionLineItemOptions
@@ -273,7 +273,7 @@ namespace API.Controllers
 					SuccessUrl = req.SuccessUrl,
 					CancelUrl = req.FailureUrl,
 					Mode = "subscription",
-					AutomaticPaymentMethods = new SessionAutomaticPaymentMethodsOptions { Enabled = true },
+					PaymentMethodTypes = new List<string> { "card" },
 					LineItems = new List<SessionLineItemOptions>
 					{
 						new SessionLineItemOptions

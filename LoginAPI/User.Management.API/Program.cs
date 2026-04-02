@@ -282,6 +282,27 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 
+// Must run before routing/endpoints so 404s from MapControllers are handled correctly.
+app.UseStatusCodePages(async context =>
+{
+    var ctx = context.HttpContext;
+    if (ctx.Response.StatusCode != 404)
+        return;
+    if (ctx.Request.Path.StartsWithSegments("/api"))
+    {
+        ctx.Response.ContentType = "application/json; charset=utf-8";
+        await ctx.Response.WriteAsJsonAsync(new
+        {
+            message = "Not found",
+            path = ctx.Request.Path.Value,
+        });
+        return;
+    }
+    ctx.Response.ContentType = "text/html; charset=utf-8";
+    await ctx.Response.WriteAsync(
+        "<html><body><h1>Page not found</h1><p>The page you are looking for does not exist. Please check the URL or visit the <a href='/'>homepage</a>.</p></body></html>");
+});
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -299,28 +320,14 @@ if (!app.Environment.IsProduction())
 }
 app.UseAuthentication();
 app.UseAuthorization();
-//UseAuthorization comes before this
-app.UseEndpoints(endpoints =>
-{
-    // Define a default route for the API
-    endpoints.MapGet("/", async context =>
-    {
-        await context.Response.WriteAsync("Welcome to the CryptoTax API. Please use the correct endpoint.");
-    });
 
-    // Map controllers
-    endpoints.MapControllers();
+app.MapGet("/", async (HttpContext http) =>
+{
+    http.Response.ContentType = "text/plain; charset=utf-8";
+    await http.Response.WriteAsync(
+        "Welcome to Poultry Master User Management API. Use /api/Authentication, /api/Payments, etc.");
 });
 
-// Handle 404 errors
-app.UseStatusCodePages(async context =>
-{
-    if (context.HttpContext.Response.StatusCode == 404)
-    {
-        context.HttpContext.Response.ContentType = "text/html";
-        await context.HttpContext.Response.WriteAsync(
-            "<html><body><h1>Page not found</h1><p>The page you are looking for does not exist. Please check the URL or visit the <a href='/'>homepage</a>.</p></body></html>");
-    }
-});
+app.MapControllers();
 
 app.Run();
