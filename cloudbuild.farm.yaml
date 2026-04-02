@@ -1,5 +1,7 @@
 # Cloud Build: PoultryFarmAPI → Artifact Registry → Cloud Run (second service)
 #
+# Login API (Paystack, auth) → cloudbuild.login.yaml + trigger for poultrymaster-api-git.
+#
 # Same pipeline as root `cloudbuild.yaml` (GCP’s default filename). If your trigger
 # says "cloudbuild.yaml not found", either use this path explicitly here or push
 # `cloudbuild.yaml` and point the trigger at that file.

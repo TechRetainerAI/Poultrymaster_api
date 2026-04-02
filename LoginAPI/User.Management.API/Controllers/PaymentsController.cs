@@ -55,6 +55,13 @@ namespace User.Management.API.Controllers
 			_userManager = userManager;
 		}
 
+		/// <summary>Quick check that this revision and Payments routes are live (no auth, no DB).</summary>
+		[HttpGet("health")]
+		public IActionResult Health()
+		{
+			return Ok(new { ok = true, controller = "Payments", revisionHint = "User.Management.API" });
+		}
+
 		[HttpGet("products")]
 		public IActionResult Products()
 		{

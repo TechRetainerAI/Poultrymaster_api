@@ -1,17 +1,18 @@
-# Cloud Build: PoultryFarmAPI → Artifact Registry → Cloud Run (FARM service only)
+# Cloud Build: User.Management.API (Login API) → Artifact Registry → Cloud Run
 #
-# Login API (User.Management.API, Paystack routes) → use cloudbuild.login.yaml
-# and a separate trigger, or `poultrymaster-api-git` will stay on an old image.
+# Default `cloudbuild.yaml` in this repo builds PoultryFarmAPI only (poultrymaster-farm-api-git).
+# Use THIS file for the Login / payments service (poultrymaster-api-git).
 #
-# GCP defaults to THIS filename (`cloudbuild.yaml`). If you see
-# "File cloudbuild.yaml not found", ensure this file is at the repository root
-# and the trigger uses: Cloud Build configuration file → Location: Repository → cloudbuild.yaml
+# GCP → Cloud Build → Triggers → New trigger → Push to branch
+#   Configuration: Cloud Build configuration file
+#   Location: Repository → cloudbuild.login.yaml
 #
-# Duplicate pipeline also lives in `cloudbuild.farm.yaml` — keep both in sync when editing.
+# Manual:
+#   gcloud builds submit --config cloudbuild.login.yaml .
 
 substitutions:
   _REGION: europe-west1
-  _SERVICE_NAME: poultrymaster-farm-api-git
+  _SERVICE_NAME: poultrymaster-api-git
   _AR_REPO_PATH: cloud-run-source-deploy/techretainerai-poultrymaster_api
 
 steps:
@@ -23,8 +24,8 @@ steps:
       - -t
       - $_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO_PATH/$_SERVICE_NAME:latest
       - -f
-      - PoultryFarmAPI/Dockerfile
-      - PoultryFarmAPI
+      - Dockerfile
+      - .
 
   - name: gcr.io/cloud-builders/docker
     args:
