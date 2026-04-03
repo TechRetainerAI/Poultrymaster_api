@@ -28,12 +28,25 @@ if (string.IsNullOrWhiteSpace(connectionString))
         "Connection string 'ConnStr' is missing or empty. Set ConnectionStrings__ConnStr on Cloud Run to your Cloud SQL SQL Server connection string (or use User Secrets locally).");
 }
 
-builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connectionString));
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(connectionString, sql =>
+        sql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(30))));
 
 //configure stripe
 StripeConfiguration.ApiKey = builder.Configuration.GetValue<string>("StripeSettings:PrivateKey");
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("StripeSettings"));
-builder.Services.Configure<PaystackSettings>(builder.Configuration.GetSection("PaystackSettings"));
+builder.Services.Configure<PaystackSettings>(opts =>
+{
+	builder.Configuration.GetSection("PaystackSettings").Bind(opts);
+	// Cloud Run / Linux: use PaystackSettings__SecretKey (double underscore). Colons in env names are awkward.
+	// Flat names are easier in some consoles:
+	if (string.IsNullOrWhiteSpace(opts.SecretKey))
+		opts.SecretKey = (builder.Configuration["PAYSTACK_SECRET_KEY"] ?? "").Trim();
+	if (string.IsNullOrWhiteSpace(opts.PublicKey))
+		opts.PublicKey = (builder.Configuration["PAYSTACK_PUBLIC_KEY"] ?? "").Trim();
+	opts.SecretKey = opts.SecretKey.Trim();
+	opts.PublicKey = opts.PublicKey.Trim();
+});
 builder.Services.Configure<FarmSubscriptionOptions>(builder.Configuration.GetSection("FarmSubscription"));
 
 // Cloud Run / reverse proxies
@@ -183,6 +196,8 @@ builder.Services.AddAuthentication(options =>
     options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
 }).AddJwtBearer(options =>
 {
+    // Map JWT short names (e.g. "email") to ClaimTypes.* so FindFirstValue(ClaimTypes.Email) works.
+    options.MapInboundClaims = true;
     options.SaveToken = true;
     options.RequireHttpsMetadata = false;
     options.TokenValidationParameters = new TokenValidationParameters()
